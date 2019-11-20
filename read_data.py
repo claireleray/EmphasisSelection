@@ -92,23 +92,28 @@ def write_results(word_id_lsts, words_lsts, e_freq_lsts, write_to):
         out.close()
         
         
-def tokenize_and_pad(sentences,y) :
+def tokenize_and_pad(sentences,y, poss) :
     tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
     tokenized_texts = [tokenizer.tokenize(sent) for sent in sentences]
-    print ("Tokenize the first sentence:")
-    print (tokenized_texts[0])
+    print ("Sentences tokenized - ex: %s" % tokenized_texts[0])
     MAX_LEN = max([len(x) for x in tokenized_texts])
+    
     # Pad our input tokens
     input_ids = pad_sequences([tokenizer.convert_tokens_to_ids(txt) for txt in tokenized_texts],
                           maxlen=MAX_LEN, dtype="long", truncating="post", padding="post")
     # Use the BERT tokenizer to convert the tokens to their index numbers in the BERT vocabulary
     input_ids = [tokenizer.convert_tokens_to_ids(x) for x in tokenized_texts]
     input_ids = pad_sequences(input_ids, maxlen=MAX_LEN, dtype="long", truncating="post", padding="post")
+    print("Sentences padded - ex: %s" % input_ids[0])
     
     # Pad y
-    y_padded = pad_sequences(input_ids, maxlen=MAX_LEN, dtype="long", truncating="post", padding="post")
+    y_padded = pad_sequences(y, maxlen=MAX_LEN, dtype="float", truncating="post", padding="post")
+    print("Labels padded - ex: %s" % y_padded[0])
     
-    return input_ids, y_padded, MAX_LEN
+    # Pad POSs
+    poss_padded = pad_sequences(poss, maxlen=MAX_LEN, dtype="object", truncating="post", padding="post")
+    print("POSs padded - ex: %s" % poss_padded[0])
+    return input_ids, y_padded, poss_padded, MAX_LEN
 
 def write_ground_truth(i_test,original_filename,new_filename):
     word_ids, posts, bios, freqs, e_freqs, poss = read_data(original_filename)
@@ -129,27 +134,23 @@ def create_dataset(filename,ground_truth_filename):
     # Train and test datasets
             
     word_ids, posts, bios, freqs, e_freqs, poss = read_data(filename)
-
-    X = posts
     y = e_freqs
     
-    print(X[0])
-    print(y[0])
+    posts_boundaries = ['[CLS] ' + " ".join(words) + ' [SEP]' for words in posts]
     
-    X_boundaries = ['[CLS] ' + " ".join(words) + ' [SEP]' for words in X]
+    print("Boundaries tokens added - ex: %s" % posts_boundaries[0])
     
-    print(X_boundaries[0])
-    
-    input_ids, y_padded, maxlen = tokenize_and_pad(X_boundaries, y)
+    input_ids, y_padded, poss_padded, maxlen = tokenize_and_pad(posts_boundaries, y, poss)
+    X = np.array([(input_ids[i],poss_padded[i]) for i in range(0,len(input_ids))])
+    print("Input dataset created - ex: %s" % X[0])
     
     indices = [i for i in range(0,len(X))]
-    
     X_train, X_test, y_train, y_test, i_train, i_test = train_test_split(input_ids, y_padded, indices, test_size=0.3)
     
     word_ids_test = np.take(word_ids,i_test)
     posts_test = np.take(posts,i_test)
-    
     write_ground_truth(i_test,filename,ground_truth_filename)
+    print("Ground truth labels written")
     
     return word_ids_test, posts_test, X_train, X_test, np.array(y_train), np.array(y_test), maxlen
     

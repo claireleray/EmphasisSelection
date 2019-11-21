@@ -24,15 +24,14 @@ def unpad(predictions,word_ids):
 
 filename = "data/trial_data.txt"
 print("Data path : %s" % filename)
-dict_path = "albert_base_zh/vocab.txt"
-print("Dictionnary path : %s" % dict_path)
-config_path = "albert_base_zh/albert_config_base.json"
+config_path = "bert_base_cased/bert_config.json"
 print("Config path : %s" % config_path)
 results_path = "data/res/submission.txt"
 print("Results path : %s" % results_path)
 ground_truth_filename = "data/ref/gold.txt"
 print("Ground truth labels path : %s\n" % ground_truth_filename)
-checkpoint_path = None
+checkpoint_path = "bert_base_cased/bert_model.ckpt"
+print("Checkpoint path : %s\n" % checkpoint_path)
 
 # Dataset generation
 print(" === Dataset generation ===\n")

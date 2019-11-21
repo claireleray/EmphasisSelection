@@ -24,7 +24,7 @@ def unpad(predictions,word_ids):
 
 filename = "data/trial_data.txt"
 print("Data path : %s" % filename)
-config_path = "bert_base_cased/bert_config.json"
+config_path = "bert_base_cased/albert_config_base.json"
 print("Config path : %s" % config_path)
 results_path = "data/res/submission.txt"
 print("Results path : %s" % results_path)

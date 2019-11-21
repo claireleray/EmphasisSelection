@@ -124,6 +124,7 @@ def write_ground_truth(i_test,original_filename,new_filename):
     new_e_freqs = np.take(e_freqs,i_test)
     new_poss = np.take(poss,i_test)
     with open(new_filename,'w') as f:
+        f.write("\n")
         for i in range(0,len(i_test)):
             for j in range(0,len(new_word_ids[i])):
                 line = [new_word_ids[i][j],new_posts[i][j],new_bios[i][j],new_freqs[i][j],new_e_freqs[i][j],new_poss[i][j]]

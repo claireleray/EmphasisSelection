@@ -6,7 +6,6 @@ Created on Fri Nov  1 09:57:09 2019
 @author: claire
 """
 from keras.preprocessing.sequence import pad_sequences
-from sklearn.model_selection import train_test_split
 from pytorch_pretrained_bert import BertTokenizer
 import numpy as np
 
@@ -92,13 +91,13 @@ def write_results(word_id_lsts, words_lsts, e_freq_lsts, write_to):
         out.close()
         
         
-def tokenize_and_pad(sentences,y, poss) :
+def tokenize_and_pad(sentences,y, weights) :
     tokenizer = BertTokenizer.from_pretrained('bert-base-cased', do_lower_case=False)
     tokenized_texts = [tokenizer.tokenize(sent) for sent in sentences]
     print ("Sentences tokenized - ex: %s" % tokenized_texts[0])
     MAX_LEN = max([len(x) for x in tokenized_texts])
     
-    # Pad our input tokens
+    # Pad input tokens
     input_ids = pad_sequences([tokenizer.convert_tokens_to_ids(txt) for txt in tokenized_texts],
                           maxlen=MAX_LEN, dtype="long", truncating="post", padding="post")
     # Use the BERT tokenizer to convert the tokens to their index numbers in the BERT vocabulary
@@ -110,52 +109,38 @@ def tokenize_and_pad(sentences,y, poss) :
     y_padded = pad_sequences(y, maxlen=MAX_LEN, dtype="float", truncating="post", padding="post")
     print("Labels padded - ex: %s" % y_padded[0])
     
-    # Pad POSs
-    poss_padded = pad_sequences(poss, maxlen=MAX_LEN, dtype="object", truncating="post", padding="post")
-    print("POSs padded - ex: %s" % poss_padded[0])
-    return input_ids, y_padded, poss_padded, MAX_LEN
+    # Pad weights
+    weights_padded = pad_sequences(weights, maxlen=MAX_LEN, dtype="object", truncating="post", padding="post", value=9.0)
+    print("Weights padded - ex: %s" % weights_padded[0])
+    return input_ids, y_padded, weights_padded, MAX_LEN
 
-def write_ground_truth(i_test,original_filename,new_filename):
-    word_ids, posts, bios, freqs, e_freqs, poss = read_data(original_filename)
-    new_word_ids = np.take(word_ids,i_test)
-    new_posts = np.take(posts,i_test)
-    new_bios= np.take(bios,i_test)
-    new_freqs = np.take(freqs,i_test)
-    new_e_freqs = np.take(e_freqs,i_test)
-    new_poss = np.take(poss,i_test)
-    with open(new_filename,'w') as f:
-        f.write("\n")
-        for i in range(0,len(i_test)):
-            for j in range(0,len(new_word_ids[i])):
-                line = [new_word_ids[i][j],new_posts[i][j],new_bios[i][j],new_freqs[i][j],new_e_freqs[i][j],new_poss[i][j]]
-                f.write("\t".join(line) + "\n")
-            f.write("\n")
-        
-def create_dataset(filename,ground_truth_filename):
-    # Train and test datasets
-            
+def create_dataset(filename):    
     word_ids, posts, bios, freqs, e_freqs, poss = read_data(filename)
-    y = e_freqs
-    
+
+    # Boundaries tokens
     posts_boundaries = ['[CLS] ' + " ".join(words) + ' [SEP]' for words in posts]
-    
     print("Boundaries tokens added - ex: %s" % posts_boundaries[0])
     
-    input_ids, y_padded, poss_padded, maxlen = tokenize_and_pad(posts_boundaries, y, poss)
-    X = np.array([(input_ids[i],poss_padded[i]) for i in range(0,len(input_ids))])
-    print("Input dataset created - ex: %s" % X[0])
+    # Labels
+    e_freqs_float = [list(map(float,e_freq_lst)) for e_freq_lst in e_freqs]
+    labels = [[0] + list(map(round,e_freq_lst)) for e_freq_lst in e_freqs_float]
     
-    indices = [i for i in range(0,len(X))]
-    X_train, X_test, y_train, y_test, i_train, i_test = train_test_split(input_ids, y_padded, indices, test_size=0.3)
+    # Weights
+    weights = []
+    for freq in freqs:
+        weights_sentence = [9.0]
+        for word_bio in freq:
+            word_bio_lst = list(map(float,word_bio.split("|")))
+            weight = max(word_bio_lst)
+            weights_sentence.append(weight)
+        weights.append(weights_sentence)
     
-    word_ids_test = np.take(word_ids,i_test)
-    posts_test = np.take(posts,i_test)
-    write_ground_truth(i_test,filename,ground_truth_filename)
-    print("Ground truth labels written")
+    input_ids, y_padded, weights_padded, maxlen = tokenize_and_pad(posts_boundaries, labels, weights)
+
+    X = input_ids
+    y = y_padded
     
-    return word_ids_test, posts_test, X_train, X_test, np.array(y_train), np.array(y_test), maxlen
-    
-    
+    return np.array(X), np.array(y), np.array(weights_padded)  
     
 
     
